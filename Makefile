@@ -1,10 +1,7 @@
-# ============================================================
-#  Simple Makefile for libselector
-# ============================================================
-
-PREFIX        ?= /usr/local
+PREFIX        = /usr/local
 INCLUDEDIR    = $(PREFIX)/include
 LIBDIR        = $(PREFIX)/lib
+DEBUGFLAGS 		= -DDEBUG
 
 CC            = gcc
 CFLAGS        = -fPIC -Wall -Wextra `pkg-config --cflags libgit2`
@@ -14,9 +11,6 @@ TARGET        = libselector.so
 OBJS          = selector.o
 HEADER        = selector.h
 
-# ------------------------------------------------------------
-# Default target: build the shared library
-# ------------------------------------------------------------
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
@@ -25,9 +19,9 @@ $(TARGET): $(OBJS)
 selector.o: selector.c $(HEADER)
 	$(CC) $(CFLAGS) -c selector.c -o selector.o
 
-# ------------------------------------------------------------
-# Install to /usr/local by default
-# ------------------------------------------------------------
+debug: CFLAGS += -DDEBUG
+debug: all
+
 install: $(TARGET)
 	install -d $(INCLUDEDIR)
 	install -d $(LIBDIR)
@@ -35,9 +29,6 @@ install: $(TARGET)
 	install -m 755 $(TARGET) $(LIBDIR)
 	ldconfig
 
-# ------------------------------------------------------------
-# Cleanup
-# ------------------------------------------------------------
 clean:
 	rm -f $(OBJS) $(TARGET)
 

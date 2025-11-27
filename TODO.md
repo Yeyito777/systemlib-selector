@@ -1,3 +1,5 @@
+- [x] Add a debug target to the makefile
+- [x] copy XColor/ from outside the dir doesn't respect .gitignore, check what's going on.
 - [ ] Make tests to make sure new updates don't break everything
 - [ ] Fix bug that -a flag still ignores .git (this is hardcoded I think)
 - [ ] Add documentation

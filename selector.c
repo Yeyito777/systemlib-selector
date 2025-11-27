@@ -82,10 +82,19 @@ static void getfiles(int *pathsc, char **paths, int *selectorsc, char **selector
     } else {
       snprintf(filepath,sizeof(filepath),"%s/%s",currentpath,dir->d_name);
     }
-
+    
     int isignored = 0;
+    char absfilepath[PATH_MAX]; realpath(filepath,absfilepath);
     for (int i = 0; i < reposc; i++) {
-      int err = git_ignore_path_is_ignored(&isignored, repos[i], filepath);
+      const char *gitworkdir = git_repository_workdir(repos[i]);
+      char reporelpath[PATH_MAX];
+      if (!strncmp(absfilepath,gitworkdir,strlen(gitworkdir))) {
+        snprintf(reporelpath,sizeof(reporelpath),"%s",absfilepath+strlen(gitworkdir));
+      } else {
+        strcpy(reporelpath,filepath);
+      }
+
+      int err = git_ignore_path_is_ignored(&isignored, repos[i], reporelpath);
       if (err) {
         const git_error *e = git_error_last();
         fprintf(stderr,"selector.c: Error checking ignore: %s\n", e ? e->message : "unknown");
