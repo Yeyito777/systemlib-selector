@@ -1,0 +1,3 @@
+- [ ] Make tests to make sure new updates don't break everything
+- [ ] Fix bug that -a flag still ignores .git (this is hardcoded I think)
+- [ ] Add documentation
