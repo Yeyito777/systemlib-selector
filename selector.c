@@ -121,7 +121,7 @@ static void getfiles(int *pathsc, char **paths, int *selectorsc, char **selector
         }
         debugprint("selector.c: Skipping directory %s/\n", filepath);
         break;
-      case DT_REG:;
+      case DT_REG:
         if (isnontext(filepath)) {continue;}
         
         for (int i = 0; i < *selectorsc; i++) {
