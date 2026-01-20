@@ -4,6 +4,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <fnmatch.h>
+#include <sys/stat.h>
 
 #define MAX_FILE_LEN 131072 
 #define MAX_FILES 4096
@@ -163,9 +164,16 @@ char **selectfiles(int argc, char **argv) {
   int dirpatternsc = 0;
   for (int i = 0; i < argc; i++) {
     int argvilen = strlen(argv[i]);
-    if (argv[i][argvilen-1] == '/') {
-      dirpatterns[dirpatternsc] = malloc(argvilen+2);
-      snprintf(dirpatterns[dirpatternsc],argvilen+2,"%s*",argv[i]);
+    int isdir = argv[i][argvilen-1] == '/';
+    if (!isdir) {
+      struct stat st;
+      if (stat(argv[i], &st) == 0 && S_ISDIR(st.st_mode)) {
+        isdir = 1;
+      }
+    }
+    if (isdir) {
+      dirpatterns[dirpatternsc] = malloc(argvilen+3);
+      snprintf(dirpatterns[dirpatternsc],argvilen+3,"%s%s*",argv[i], argv[i][argvilen-1] == '/' ? "" : "/");
       argv[i] = dirpatterns[dirpatternsc];
       dirpatternsc++;
     }
