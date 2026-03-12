@@ -5,6 +5,7 @@
 #include <dirent.h>
 #include <fnmatch.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #define MAX_FILE_LEN 131072 
 #define MAX_FILES 4096
@@ -172,10 +173,29 @@ char **selectfiles(int argc, char **argv) {
       }
     }
     if (isdir) {
-      dirpatterns[dirpatternsc] = malloc(argvilen+3);
-      snprintf(dirpatterns[dirpatternsc],argvilen+3,"%s%s*",argv[i], argv[i][argvilen-1] == '/' ? "" : "/");
-      argv[i] = dirpatterns[dirpatternsc];
-      dirpatternsc++;
+      if (!strcmp(argv[i], ".") || !strcmp(argv[i], "./")) {
+        argv[i] = "*";
+      } else {
+        dirpatterns[dirpatternsc] = malloc(argvilen+3);
+        snprintf(dirpatterns[dirpatternsc],argvilen+3,"%s%s*",argv[i], argv[i][argvilen-1] == '/' ? "" : "/");
+        argv[i] = dirpatterns[dirpatternsc];
+        dirpatternsc++;
+      }
+    }
+  }
+
+  // Normalize absolute selectors under cwd to relative paths
+  char cwd[PATH_MAX];
+  int have_cwd = getcwd(cwd, sizeof(cwd)) != NULL;
+  int cwdlen = have_cwd ? (int)strlen(cwd) : 0;
+
+  if (have_cwd) {
+    for (int i = 0; i < argc; i++) {
+      if (argv[i][0] == '/' && !strncmp(argv[i], cwd, cwdlen)
+          && (argv[i][cwdlen] == '/' || argv[i][cwdlen] == '\0')) {
+        argv[i] = argv[i][cwdlen] == '/' ? argv[i] + cwdlen + 1 : "*";
+        debugprint("selector.c: Normalized absolute selector to: %s\n", argv[i]);
+      }
     }
   }
 
@@ -188,15 +208,45 @@ char **selectfiles(int argc, char **argv) {
   }
   #endif
 
-  getfiles(&pathsc,paths,&argc,argv,".");
+  // Split selectors: relative ones use ".", absolute ones (outside cwd) use their base dir
+  char *relselectors[MAX_SELECTORS];
+  int relselectorsc = 0;
+  for (int i = 0; i < argc; i++) {
+    if (argv[i][0] != '/') {
+      relselectors[relselectorsc++] = argv[i];
+    }
+  }
+
+  if (relselectorsc > 0) {
+    getfiles(&pathsc, paths, &relselectorsc, relselectors, ".");
+  }
+
+  for (int i = 0; i < argc; i++) {
+    if (argv[i][0] == '/') {
+      char basedir[PATH_MAX];
+      strncpy(basedir, argv[i], sizeof(basedir));
+      basedir[sizeof(basedir)-1] = '\0';
+      // Walk back from the first glob character (or end of string for plain
+      // file paths) to find the base directory
+      char *globch = strpbrk(basedir, "*?[");
+      if (!globch) globch = basedir + strlen(basedir); // plain path, no globs
+      while (globch > basedir && *globch != '/') globch--;
+      if (globch > basedir) *globch = '\0';
+      debugprint("selector.c: Handling out-of-cwd selector %s from base %s\n", argv[i], basedir);
+      char *sel = argv[i];
+      int selc = 1;
+      getfiles(&pathsc, paths, &selc, &sel, basedir);
+    }
+  }
 
   for (int i = 0; i < dirpatternsc; i++) {free(dirpatterns[i]);} free(dirpatterns);
   for (int i = 0; i < reposc; i++) {git_repository_free(repos[i]);}
   reposc = flags = totalignored = 0;
   git_libgit2_shutdown();
   
-  #ifdef DEBUG
   paths[pathsc] = NULL;
+
+  #ifdef DEBUG
   if (pathsc == 0 && totalignored > 0) {
     debugprint("selector.c: No files selected but ignored > 0. Did you forget the -a flag?\n");
   }
